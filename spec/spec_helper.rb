@@ -14,6 +14,7 @@ require 'lhm'
 require 'support/matchers/have_column'
 require 'support/matchers/have_index'
 require 'support/table_methods'
+require 'support/connect_to_db'
 
 db_config = Configuration.new
 
@@ -21,13 +22,6 @@ db_config = Configuration.new
 fd = ENV['VERBOSE'] ? STDOUT : '/dev/null'
 ActiveRecord::Base.logger = Logger.new(fd)
 
-ActiveRecord::Base.establish_connection(
-  adapter: 'percona',
-  host: db_config['hostname'],
-  username: db_config['username'],
-  password: db_config['password'],
-  database: db_config['database']
-)
 
 MIGRATION_FIXTURES = File.expand_path('../fixtures/migrate/', __FILE__)
 
@@ -45,7 +39,12 @@ RSpec.configure do |config|
   # Cleans up the database before each example, so the current example doesn't
   # see the state of the previous one
   config.before(:each) do |example|
+    connect_to_db(db_config)
     test_database.setup if example.metadata[:integration]
+  end
+
+  config.after(:each) do
+    Departure.unload
   end
 
   config.order = :random

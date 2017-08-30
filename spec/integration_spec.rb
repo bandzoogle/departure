@@ -20,7 +20,9 @@ describe Departure, integration: true do
       around(:each) do |example|
         original_verbose = ActiveRecord::Migration.verbose
         ActiveRecord::Migration.verbose = true
+        Departure.load
         example.run
+        Departure.unload
         ActiveRecord::Migration.verbose = original_verbose
       end
 
@@ -35,7 +37,9 @@ describe Departure, integration: true do
       around(:each) do |example|
         original_verbose = ActiveRecord::Migration.verbose
         ActiveRecord::Migration.verbose = false
+        Departure.load
         example.run
+        Departure.unload
         ActiveRecord::Migration.verbose = original_verbose
       end
 
@@ -51,7 +55,12 @@ describe Departure, integration: true do
     let(:db_config) { Configuration.new }
 
     it 'reconnects to the database using PerconaAdapter' do
+      expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
+        .to eq('mysql2')
+
+      Departure.load
       ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+
       expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
         .to eq('percona')
     end
@@ -211,6 +220,54 @@ describe Departure, integration: true do
           end
         end
           .to raise_error(Departure::ArgumentsNotSupported)
+      end
+    end
+  end
+
+  describe 'active?' do
+    let(:migrator) { ActiveRecord::Migrator.new(direction, migration_fixtures, 1) }
+
+    context 'when false' do
+      before(:each) do
+        @old_value = Departure.configuration.active?
+        Departure.configure do |config|
+          config.active = false
+        end
+        Departure.load
+      end
+
+      after(:each) do
+        Departure.configure do |config|
+          config.active = @old_value
+        end
+      end
+
+      it 'uses original connection' do
+        migrator.migrate
+
+        expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
+          .to eq('mysql2')
+      end
+    end
+
+    context 'when true' do
+      before(:each) do
+        @old_value = Departure.configuration.active?
+        Departure.configure do |config|
+          config.active = true
+        end
+        Departure.load
+      end
+
+      after(:each) do
+        Departure.configure do |config|
+          config.active = @old_value
+        end
+      end
+
+      it 'uses original connection' do
+        migrator.migrate
+        expect(ActiveRecord::Base.connection_pool.spec.config[:adapter]).to eq('percona')
       end
     end
   end

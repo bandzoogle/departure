@@ -18,6 +18,7 @@ require 'departure/railtie' if defined?(Rails)
 $stdout.sync = true
 
 module Departure
+  cattr_accessor :loaded
   class << self
     attr_accessor :configuration
   end
@@ -27,9 +28,36 @@ module Departure
     yield(configuration)
   end
 
+  def self.unload
+    return true unless ActiveRecord::Migrator.respond_to?(:original_migrate)
+
+    ActiveRecord::Migrator.instance_eval do
+      class << self
+        if respond_to?(:original_migrate)
+          remove_method :migrate
+          alias_method(:migrate, :original_migrate)
+
+          remove_method :original_migrate
+        end
+      end
+    end
+    ActiveRecord::Migration.class_eval do
+      if respond_to?(:original_migrate)
+        remove_method :migrate
+        alias_method :migrate, :original_migrate
+        remove_method :include_foreigner
+        remove_method :reconnect_with_percona
+      end
+    end
+
+    Departure.loaded = false
+  end
+
   # Hooks Percona Migrator into Rails migrations by replacing the configured
   # database adapter
   def self.load
+    return true if ActiveRecord::Migrator.respond_to?(:original_migrate)
+
     ActiveRecord::Migrator.instance_eval do
       class << self
         alias_method(:original_migrate, :migrate)
@@ -53,10 +81,12 @@ module Departure
       #
       # @param direction [Symbol] :up or :down
       def migrate(direction)
-        reconnect_with_percona
-        include_foreigner if defined?(Foreigner)
+        if Departure.configuration.active?
+          reconnect_with_percona
+          include_foreigner if defined?(Foreigner)
 
-        ::Lhm.migration = self
+          ::Lhm.migration = self
+        end
         original_migrate(direction)
       end
 
@@ -77,5 +107,7 @@ module Departure
         ActiveRecord::Base.establish_connection(connection_config)
       end
     end
+
+    Departure.loaded = true
   end
 end
