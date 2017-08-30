@@ -22,7 +22,7 @@ module Departure
     #
     # @param sql [String]
     def query(sql)
-      if alter_statement?(sql)
+      if Departure.active? && alter_statement?(sql)
         command_line = cli_generator.parse_statement(sql)
         execute(command_line)
       else
@@ -44,7 +44,11 @@ module Departure
     # @param command_line [String]
     # @return [Boolean]
     def execute(command_line)
-      Command.new(command_line, error_log_path, logger).run
+      if Departure.active?
+        Command.new(command_line, error_log_path, logger).run
+      else
+        super
+      end
     end
 
     private

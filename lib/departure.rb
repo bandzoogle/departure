@@ -21,6 +21,9 @@ module Departure
   cattr_accessor :loaded
   class << self
     attr_accessor :configuration
+    def active?
+      self.configuration.active?
+    end
   end
 
   def self.configure
