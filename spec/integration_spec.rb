@@ -52,41 +52,41 @@ describe Departure, integration: true do
     it 'reconnects to the database using PerconaAdapter' do
       ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
       expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
-        .to eq('percona')
+          .to eq('percona')
     end
 
     context 'when a username is provided' do
       before do
         ActiveRecord::Base.establish_connection(
-          adapter: 'percona',
-          host: db_config['hostname'],
-          username: db_config['username'],
-          password: db_config['password'],
-          database: db_config['database']
+            adapter: 'percona',
+            host: db_config['hostname'],
+            username: db_config['username'],
+            password: db_config['password'],
+            database: db_config['database']
         )
       end
 
       it 'uses the provided username' do
         ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
         expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+            .to eq('root')
       end
     end
 
     context 'when no username is provided' do
       before do
         ActiveRecord::Base.establish_connection(
-          adapter: 'percona',
-          host: db_config['hostname'],
-          password: db_config['password'],
-          database: db_config['database']
+            adapter: 'percona',
+            host: db_config['hostname'],
+            password: db_config['password'],
+            database: db_config['database']
         )
       end
 
       it 'uses root' do
         ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
         expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+            .to eq('root')
       end
     end
 
@@ -94,7 +94,7 @@ describe Departure, integration: true do
     context 'when there is LHM' do
       xit 'patches it to use regular Rails migration methods' do
         expect(Departure::Lhm::Fake::Adapter)
-          .to receive(:new).and_return(true)
+            .to receive(:new).and_return(true)
         ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
       end
     end
@@ -127,7 +127,7 @@ describe Departure, integration: true do
 
       before do
         ActiveRecord::Base.connection
-          .add_column(:comments, :some_id_field, :integer)
+            .add_column(:comments, :some_id_field, :integer)
       end
 
       it 'raises and halts the execution' do
@@ -163,9 +163,9 @@ describe Departure, integration: true do
     context 'and only argument is provided' do
       it 'runs pt-online-schema-change with the specified arguments' do
         expect(Departure::Command)
-          .to receive(:new)
-          .with(/--chunk-time=1/, anything, anything)
-          .and_return(command)
+            .to receive(:new)
+                    .with(/--chunk-time=1/, anything, anything)
+                    .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--chunk-time=1' do
           ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
@@ -176,9 +176,9 @@ describe Departure, integration: true do
     context 'and multiple arguments are provided' do
       it 'runs pt-online-schema-change with the specified arguments' do
         expect(Departure::Command)
-          .to receive(:new)
-          .with(/--chunk-time=1 --max-lag=2/, anything, anything)
-          .and_return(command)
+            .to receive(:new)
+                    .with(/--chunk-time=1 --max-lag=2/, anything, anything)
+                    .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--chunk-time=1 --max-lag=2' do
           ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
@@ -189,9 +189,9 @@ describe Departure, integration: true do
     context 'and there is a default value for the argument' do
       it 'runs pt-online-schema-change with the user specified value' do
         expect(Departure::Command)
-          .to receive(:new)
-          .with(/--alter-foreign-keys-method=drop_swap/, anything, anything)
-          .and_return(command)
+            .to receive(:new)
+                    .with(/--alter-foreign-keys-method=drop_swap/, anything, anything)
+                    .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--alter-foreign-keys-method=drop_swap' do
           ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
