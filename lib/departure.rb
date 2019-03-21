@@ -13,6 +13,7 @@ require 'departure/logger_factory'
 require 'departure/configuration'
 require 'departure/errors'
 require 'departure/command'
+require 'departure/connection_base'
 
 require 'departure/railtie' if defined?(Rails)
 
