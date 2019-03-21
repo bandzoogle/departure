@@ -21,8 +21,12 @@ require 'departure/railtie' if defined?(Rails)
 $stdout.sync = true
 
 module Departure
+  cattr_accessor :loaded
   class << self
     attr_accessor :configuration
+    def active?
+      self.configuration.active?
+    end
   end
 
   def self.configure
@@ -30,9 +34,36 @@ module Departure
     yield(configuration)
   end
 
+  def self.unload
+    return true unless ActiveRecord::Migrator.respond_to?(:original_migrate)
+
+    ActiveRecord::Migrator.instance_eval do
+      class << self
+        if respond_to?(:original_migrate)
+          remove_method :migrate
+          alias_method(:migrate, :original_migrate)
+
+          remove_method :original_migrate
+        end
+      end
+    end
+    ActiveRecord::Migration.class_eval do
+      if respond_to?(:original_migrate)
+        remove_method :migrate
+        alias_method :migrate, :original_migrate
+        remove_method :include_foreigner
+        remove_method :reconnect_with_percona
+      end
+    end
+
+    Departure.loaded = false
+  end
+
   # Hooks Percona Migrator into Rails migrations by replacing the configured
   # database adapter
   def self.load
+    return true if ActiveRecord::Migrator.respond_to?(:original_migrate)
+
     ActiveRecord::Migration.class_eval do
       alias_method :original_migrate, :migrate
 
@@ -41,10 +72,12 @@ module Departure
       #
       # @param direction [Symbol] :up or :down
       def migrate(direction)
-        reconnect_with_percona
-        include_foreigner if defined?(Foreigner)
+        if Departure.configuration.active?
+          reconnect_with_percona
+          include_foreigner if defined?(Foreigner)
 
-        ::Lhm.migration = self
+          ::Lhm.migration = self
+        end
         original_migrate(direction)
       end
 
@@ -52,8 +85,8 @@ module Departure
       # DepartureAdapter to support foreign keys
       def include_foreigner
         Foreigner::Adapter.safe_include(
-          :DepartureAdapter,
-          Foreigner::ConnectionAdapters::Mysql2Adapter
+            :DepartureAdapter,
+            Foreigner::ConnectionAdapters::Mysql2Adapter
         )
       end
 
@@ -61,9 +94,11 @@ module Departure
       # instead of the current adapter.
       def reconnect_with_percona
         connection_config = ActiveRecord::Base
-          .connection_config.merge(adapter: 'percona')
+                                .connection_config.merge(adapter: 'percona')
         ActiveRecord::Base.establish_connection(connection_config)
       end
     end
+
+    Departure.loaded = true
   end
 end
