@@ -32,22 +32,40 @@ describe Departure, integration: true do
   context 'removing foreign keys' do
     let(:version) { 27 }
 
-     before do
-       ActiveRecord::Base.connection.create_table(:products)
+    before do
+      ActiveRecord::Base.connection.create_table(:products)
 
-       ActiveRecord::Base.connection.add_column(
-          :comments,
-          :product_id,
-          :bigint
-       )
-
-      ActiveRecord::Base.connection.add_foreign_key(
+      ActiveRecord::Base.connection.add_column(
         :comments,
-        :products
+        :product_id,
+        :bigint
       )
     end
 
-    it 'removes a foreign key' do
+    it 'when foreign key has default name' do
+      ActiveRecord::Base.connection.add_foreign_key(:comments, :products)
+
+      ActiveRecord::MigrationContext.new(migration_paths).run(direction, version)
+      expect(:comments).not_to have_foreign_key_on('product_id')
+    end
+
+    it 'when foreign key has a custom name' do
+      ActiveRecord::Base.connection.add_foreign_key(:comments, :products, name: "fk_123456")
+
+      ActiveRecord::MigrationContext.new(migration_paths).run(direction, version)
+      expect(:comments).not_to have_foreign_key_on('product_id')
+    end
+
+    it 'when foreign key has a custom name prefixed with _' do
+      ActiveRecord::Base.connection.add_foreign_key(:comments, :products, name: "_fk_123456")
+
+      ActiveRecord::MigrationContext.new(migration_paths).run(direction, version)
+      expect(:comments).not_to have_foreign_key_on('product_id')
+    end
+
+    it 'when foreign key has a custom name prefixed with __ (double _)' do
+      ActiveRecord::Base.connection.add_foreign_key(:comments, :products, name: "__fk_123456")
+
       ActiveRecord::MigrationContext.new(migration_paths).run(direction, version)
       expect(:comments).not_to have_foreign_key_on('product_id')
     end
