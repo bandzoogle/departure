@@ -24,8 +24,9 @@ module Departure
   cattr_accessor :loaded
   class << self
     attr_accessor :configuration
-    def active?
-      self.configuration.active?
+		def active?
+			true
+      # self.configuration.active?
     end
   end
 
@@ -35,67 +36,30 @@ module Departure
   end
 
   def self.unload
-    return true unless ActiveRecord::Migrator.respond_to?(:original_migrate)
+    return true unless ActiveRecord::Migrator.respond_to?(:original_run)
 
     ActiveRecord::Migrator.instance_eval do
-      class << self
-        if respond_to?(:original_migrate)
-          remove_method :migrate
-          alias_method(:migrate, :original_migrate)
-
-          remove_method :original_migrate
-        end
-      end
+      remove_method :run
+      alias_method(:run, :original_run)
     end
-    ActiveRecord::Migration.class_eval do
-      if respond_to?(:original_migrate)
-        remove_method :migrate
-        alias_method :migrate, :original_migrate
-        remove_method :include_foreigner
-        remove_method :reconnect_with_percona
-      end
-    end
-
     Departure.loaded = false
   end
 
   # Hooks Percona Migrator into Rails migrations by replacing the configured
   # database adapter
   def self.load
-    return true if ActiveRecord::Migrator.respond_to?(:original_migrate)
+    return true if ActiveRecord::Migrator.respond_to?(:original_run)
 
-    ActiveRecord::Migration.class_eval do
-      alias_method :original_migrate, :migrate
-
-      # Replaces the current connection adapter with the PerconaAdapter and
-      # patches LHM, then it continues with the regular migration process.
-      #
-      # @param direction [Symbol] :up or :down
-      def migrate(direction)
-        if Departure.configuration.active?
-          reconnect_with_percona
-          include_foreigner if defined?(Foreigner)
-
-          ::Lhm.migration = self
+    ActiveRecord::Migrator.class_eval do
+      alias_method :original_run, :run
+    
+      def run
+        migration = migrations.detect { |m| m.version == @target_version }
+        if migration.nil? || ! migration.send(:load_migration).is_a?(DepartureMigration)
+          original_run
+        else
+          run_without_lock
         end
-        original_migrate(direction)
-      end
-
-      # Includes the Foreigner's Mysql2Adapter implemention in
-      # DepartureAdapter to support foreign keys
-      def include_foreigner
-        Foreigner::Adapter.safe_include(
-            :DepartureAdapter,
-            Foreigner::ConnectionAdapters::Mysql2Adapter
-        )
-      end
-
-      # Make all connections in the connection pool to use PerconaAdapter
-      # instead of the current adapter.
-      def reconnect_with_percona
-        connection_config = ActiveRecord::Base
-                                .connection_config.merge(adapter: 'percona')
-        Departure::ConnectionBase.establish_connection(connection_config)
       end
     end
 

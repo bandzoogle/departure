@@ -69,12 +69,16 @@ module ActiveRecord
       def_delegators :mysql_adapter, :last_inserted_id, :each_hash, :set_field_encoding
 
       def initialize(connection, _logger, connection_options, _config)
-        @mysql_adapter = connection_options[:mysql_adapter]
+				@mysql_adapter = connection_options[:mysql_adapter]
         super
         @prepared_statements = false
       end
 
-      def exec_delete(sql, name, binds)
+			def supports_advisory_locks?
+				false
+			end
+
+			def exec_delete(sql, name, binds)
         execute(to_sql(sql, binds), name)
         @connection.affected_rows
       end
