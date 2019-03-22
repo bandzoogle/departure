@@ -14,6 +14,7 @@ require 'departure/configuration'
 require 'departure/errors'
 require 'departure/command'
 require 'departure/connection_base'
+require 'departure/migration'
 
 require 'departure/railtie' if defined?(Rails)
 
@@ -55,7 +56,7 @@ module Departure
     
       def run
         migration = migrations.detect { |m| m.version == @target_version }
-        if migration.nil? || ! migration.send(:load_migration).is_a?(DepartureMigration)
+        if migration.nil? || ! migration.send(:load_migration).is_a?(Departure::Migration)
           original_run
         else
           run_without_lock
