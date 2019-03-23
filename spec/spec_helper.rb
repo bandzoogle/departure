@@ -45,10 +45,6 @@ RSpec.configure do |config|
     test_database.setup if example.metadata[:integration]
   end
 
-  config.after(:each) do
-    Departure.unload
-  end
-
   config.order = :random
 
   Kernel.srand config.seed
