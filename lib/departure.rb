@@ -22,7 +22,6 @@ require 'departure/railtie' if defined?(Rails)
 $stdout.sync = true
 
 module Departure
-  cattr_accessor :loaded
   class << self
     attr_accessor :configuration
 		def active?
@@ -36,34 +35,59 @@ module Departure
     yield(configuration)
   end
 
-  def self.unload
-    return true unless ActiveRecord::Migrator.respond_to?(:original_run)
-
-    ActiveRecord::Migrator.instance_eval do
+	def self.unload
+    ActiveRecord::Migrator.class_eval do
       remove_method :run
       alias_method(:run, :original_run)
     end
-    Departure.loaded = false
   end
 
   # Hooks Percona Migrator into Rails migrations by replacing the configured
   # database adapter
-  def self.load
-    return true if ActiveRecord::Migrator.respond_to?(:original_run)
-
-    ActiveRecord::Migrator.class_eval do
-      alias_method :original_run, :run
-    
-      def run
-        migration = migrations.detect { |m| m.version == @target_version }
-        if migration.nil? || ! migration.send(:load_migration).is_a?(Departure::Migration)
-          original_run
-        else
-          run_without_lock
-        end
-      end
-    end
-
-    Departure.loaded = true
+	def self.load
+		unless ActiveRecord::Migrator.included_modules.include? MigratorPatch
+			ActiveRecord::Migrator.send(:include, MigratorPatch)
+		end
   end
+end
+
+module MigratorPatch
+	def self.included(base)
+		base.send(:include, InstanceMethods) unless base.included_modules.include? InstanceMethods
+		base.class_eval do
+			alias_method :original_run, :run unless defined?(:original_run)
+			alias_method :run, :patched_run
+
+			alias_method :original_migrate, :migrate unless defined?(:original_migrate)
+			alias_method :migrate, :patched_migrate
+		end
+	end
+
+	module InstanceMethods
+		def patched_run
+			binding.pry
+			migration = migrations.detect { |m| m.version == @target_version }
+			if migration.nil? || !migration.send(:load_migration).is_a?(Departure::Migration)
+				original_run
+			else
+				run_without_lock
+			end
+		end
+
+		def patched_migrate
+			binding.pry
+			# migration = migrations.detect { |m| m.version == @target_version }
+			# if migration.nil? || !migration.send(:load_migration).is_a?(Departure::Migration)
+			# 	original_migrate
+			# else
+			# 	migrate_without_lock
+			# end
+
+			if use_advisory_lock?
+        with_advisory_lock { migrate_without_lock }
+      else
+        migrate_without_lock
+			end
+		end
+	end
 end

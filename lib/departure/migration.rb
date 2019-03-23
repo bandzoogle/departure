@@ -8,8 +8,12 @@ module Departure
 			@_connection_config ||= ActiveRecord::Base.connection_config.merge(adapter: 'percona')
 		end
 
+		def handler
+			@_handler ||= ActiveRecord::ConnectionAdapters::ConnectionHandler.new
+		end
+
 		def connection_pool
-			@_connection ||= ActiveRecord::Base.establish_connection(connection_config)
+			@_connection ||= handler.establish_connection(connection_config)
 		end
 
 		def pt_osc_available?

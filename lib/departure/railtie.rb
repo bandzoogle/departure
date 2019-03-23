@@ -12,10 +12,11 @@ module Departure
     #
     # It also patches ActiveRecord's #migrate method so that it patches LHM
     # first. This will make migrations written with LHM to go through the
-    # regular Rails Migration DSL.
+		# regular Rails Migration DSL.
+		# this doesn't work or is getting overwritten or something
     initializer 'departure.configure_rails_initialization' do
-      ActiveSupport.on_load(:active_record) do
-        Departure.load
+			ActiveSupport.on_load(:active_record) do
+        # Departure.load
       end
     end
 
