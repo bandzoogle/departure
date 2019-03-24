@@ -25,8 +25,7 @@ module Departure
   class << self
     attr_accessor :configuration
 		def active?
-			true
-      # self.configuration.active?
+      self.configuration.active?
     end
   end
 
