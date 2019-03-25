@@ -25,6 +25,7 @@ module Departure
 			unless pt_osc_available?
 				announce 'no pt-osc available, using default migrator'
 				super
+				return
 			end
 
 			return unless respond_to?(direction)
